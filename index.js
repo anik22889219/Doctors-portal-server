@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config()
 const app = express()
@@ -23,11 +24,28 @@ const client = new MongoClient(uri, {
   }
 });
 
+function verifyJWT(req,res,next){
+  const authHeader = req.headers.authorization
+  // console.log(authHeader)
+if(!authHeader){
+  return res.status(401).send({message:'UnAuthorized access'})
+}
+const token = authHeader.split(' ')[1];
+jwt.verify(token, process.env.USER_TOKEN, function(err, decoded) {
+  if(err){
+    return res.status(403).send({message:'Forbidden access'})
+  }
+  req.decoded = decoded;
+  next()
+});
+}
+
 async function run() {
   try {
     await client.connect();
     const serviceDatabase = client.db("doctors").collection('admins');
     const bookingDatabase = client.db("doctors").collection('bookings');
+    const usersDatabase = client.db("doctors").collection('users');
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   
     app.get('/services', async(req, res) => {
@@ -55,6 +73,25 @@ async function run() {
     })
 
 
+    app.get('/bookings',verifyJWT,async(req,res)=>{
+      const email = req.query.email
+      const decodedEmail = req.decoded.email
+      // console.log(decodedEmail,email)
+      if(email===decodedEmail){
+        const quarry = {Email:email}
+      const data =await bookingDatabase.find(quarry).toArray();
+      res.send(data)
+      }
+      else{
+        return res.status(403).send({message:'Forbidden access'})
+
+      }
+      
+    })
+    
+  
+
+
     app.post('/bookings', async(req,res)=>{
       const data = req.body
       const quarry = {Treatment: data.Treatment,Date:data.Date,Name:data.Name}
@@ -66,7 +103,52 @@ async function run() {
       return res.send({success: true ,result})
     })
 
+    app.get('/user',verifyJWT,async(req,res)=>{
+      const users =await usersDatabase.find().toArray();
+      res.send(users);
+    })
+    app.get('/admin/:email',async(req,res)=>{
+      const email = req.params.email
+      const adminUser = await usersDatabase.findOne({email:email})
+     const isAdmin = adminUser.role === 'admin';
+      res.send({admin :isAdmin})
+    })
+    
+    app.put('/user/admin/:email',verifyJWT , async(req, res) => {
+      const email = req.params.email
+      const requester = req.decoded.email
+      const requesterAccount = await usersDatabase.findOne({email: requester}) 
+      if(requesterAccount.role=== 'admin'){
+              const filter = {email:email}
+      const updateDoc = {
+        $set: {role : 'admin'}
+      };
+      const result = await usersDatabase.updateOne(filter, updateDoc);
+      res.send(result)
+      }
+      else{
+        return res.status(403).send({message:'Forbidden access'})
+      }
 
+    })
+
+
+    app.put('/user/:email', async(req, res) => {
+      const email = req.params.email
+      const filter = {email:email}
+      const data = req.body
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: data
+      };
+      const result = await usersDatabase.updateOne(filter, updateDoc, options);
+      const token = jwt.sign({email:email},process.env.USER_TOKEN,{ expiresIn: '1h' })
+      res.send({result,token})
+    })
+
+
+
+ 
 } finally {
     
   }
