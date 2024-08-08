@@ -24,6 +24,7 @@ const client = new MongoClient(uri, {
   }
 });
 
+
 function verifyJWT(req,res,next){
   const authHeader = req.headers.authorization
   // console.log(authHeader)
@@ -46,11 +47,23 @@ async function run() {
     const serviceDatabase = client.db("doctors").collection('admins');
     const bookingDatabase = client.db("doctors").collection('bookings');
     const usersDatabase = client.db("doctors").collection('users');
+    const doctorsDatabase = client.db("doctors").collection('doctors');
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+    const verifyAdmin = async (req,res,next)=>{
+      const requester = req.decoded.email
+      const requesterAccount = await usersDatabase.findOne({email: requester}) 
+      if(requesterAccount.role=== 'admin'){
+        next()
+      }
+      else{
+        return res.status(403).send({message:'Forbidden access'})
+      }
+    }
   
     app.get('/services', async(req, res) => {
         const query ={};
-        const cursor = serviceDatabase.find(query);
+        const cursor = serviceDatabase.find(query).project({service: 1});
         const data = await cursor.toArray();
         res.send(data)
       })
@@ -103,7 +116,7 @@ async function run() {
       return res.send({success: true ,result})
     })
 
-    app.get('/user',verifyJWT,async(req,res)=>{
+    app.get('/user',verifyJWT,verifyAdmin,async(req,res)=>{
       const users =await usersDatabase.find().toArray();
       res.send(users);
     })
@@ -114,21 +127,15 @@ async function run() {
       res.send({admin :isAdmin})
     })
     
-    app.put('/user/admin/:email',verifyJWT , async(req, res) => {
-      const email = req.params.email
-      const requester = req.decoded.email
-      const requesterAccount = await usersDatabase.findOne({email: requester}) 
-      if(requesterAccount.role=== 'admin'){
-              const filter = {email:email}
+    app.put('/user/admin/:email',verifyJWT,verifyAdmin, async(req, res) => {
+      const email = req.params.email;
+      const filter = {email:email};
       const updateDoc = {
         $set: {role : 'admin'}
       };
       const result = await usersDatabase.updateOne(filter, updateDoc);
       res.send(result)
-      }
-      else{
-        return res.status(403).send({message:'Forbidden access'})
-      }
+      
 
     })
 
@@ -145,7 +152,31 @@ async function run() {
       const token = jwt.sign({email:email},process.env.USER_TOKEN,{ expiresIn: '1h' })
       res.send({result,token})
     })
+    
+    app.delete('/user/:email',verifyJWT,verifyAdmin,async(req,res)=>{
+      const email = req.params.email
+      const filter = {email:email}
+      const data = await usersDatabase.deleteOne(filter)
+      res.send(data);
+    })
 
+
+    app.post('/doctor',verifyJWT,verifyAdmin,async(req,res)=>{
+      const doctor = req.body;
+      const users =await doctorsDatabase.insertOne(doctor)
+      res.send(users);
+    })
+  
+    app.get('/doctor',verifyJWT,verifyAdmin,async(req,res)=>{
+      const data = await doctorsDatabase.find().toArray()
+      res.send(data);
+    })
+    app.delete('/doctor/:email',verifyJWT,verifyAdmin,async(req,res)=>{
+      const email = req.params.email
+      const filter = {email:email}
+      const data = await doctorsDatabase.deleteOne(filter)
+      res.send(data);
+    })
 
 
  
