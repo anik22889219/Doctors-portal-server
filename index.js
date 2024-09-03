@@ -86,6 +86,16 @@ async function run() {
     })
 
 
+    // ---to get all bookings---
+    app.get('/allbookings',verifyJWT,verifyAdmin,async(req,res)=>{
+      const bookings =await bookingDatabase.find().toArray();
+      res.send(bookings);
+    })
+
+
+
+
+    // ---to get a singel parson bookings---
     app.get('/bookings',verifyJWT,async(req,res)=>{
       const email = req.query.email
       const decodedEmail = req.decoded.email
@@ -97,12 +107,14 @@ async function run() {
       }
       else{
         return res.status(403).send({message:'Forbidden access'})
-
-      }
-      
+      }     
     })
+
+
+
+
     
-  
+  // ---store bokings on bookingDatabase---
 
 
     app.post('/bookings', async(req,res)=>{
@@ -116,17 +128,50 @@ async function run() {
       return res.send({success: true ,result})
     })
 
+
+    // ---confirm an booking---
+    app.put('/booking/:email',verifyJWT,verifyAdmin, async(req, res) => {
+      const email = req.params.email;
+      const data =req.body
+      // console.log(email)
+      const filter = {Email:email,Treatment: data.Treatment,Date:data.Date,Slot:data.Slot};
+      const updateDoc = {
+        $set: {role : 'confirmed'}
+      };
+      const result = await bookingDatabase.updateOne(filter, updateDoc);
+      res.send(result)
+    })
+
+
+
+    // ---get all confirm orders---
+
+    app.get('/confirmedBooking',async(req,res)=>{
+        const users =await bookingDatabase.find({role : 'confirmed'}).toArray();
+        res.send(users);
+      })
+
+
+
+
+    // ---get all user---
     app.get('/user',verifyJWT,verifyAdmin,async(req,res)=>{
       const users =await usersDatabase.find().toArray();
       res.send(users);
     })
+
+
+    // ---make sure is this admin---
     app.get('/admin/:email',async(req,res)=>{
       const email = req.params.email
       const adminUser = await usersDatabase.findOne({email:email})
      const isAdmin = adminUser.role === 'admin';
       res.send({admin :isAdmin})
     })
-    
+
+
+
+    // ---make an admin---
     app.put('/user/admin/:email',verifyJWT,verifyAdmin, async(req, res) => {
       const email = req.params.email;
       const filter = {email:email};
@@ -135,11 +180,9 @@ async function run() {
       };
       const result = await usersDatabase.updateOne(filter, updateDoc);
       res.send(result)
-      
-
     })
 
-
+    // ---store users---
     app.put('/user/:email', async(req, res) => {
       const email = req.params.email
       const filter = {email:email}
@@ -152,6 +195,10 @@ async function run() {
       const token = jwt.sign({email:email},process.env.USER_TOKEN,{ expiresIn: '1h' })
       res.send({result,token})
     })
+
+
+
+    // ---delete an user---
     
     app.delete('/user/:email',verifyJWT,verifyAdmin,async(req,res)=>{
       const email = req.params.email
@@ -161,16 +208,26 @@ async function run() {
     })
 
 
+
+
+
+    // ---store doctors---
     app.post('/doctor',verifyJWT,verifyAdmin,async(req,res)=>{
       const doctor = req.body;
       const users =await doctorsDatabase.insertOne(doctor)
       res.send(users);
     })
   
+
+
+    // ----get All doctors---
     app.get('/doctor',verifyJWT,verifyAdmin,async(req,res)=>{
       const data = await doctorsDatabase.find().toArray()
       res.send(data);
     })
+
+
+    // ---delete an doctor---
     app.delete('/doctor/:email',verifyJWT,verifyAdmin,async(req,res)=>{
       const email = req.params.email
       const filter = {email:email}
