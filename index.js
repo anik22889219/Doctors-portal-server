@@ -1,7 +1,8 @@
 const express = require('express')
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion} = require('mongodb');
+const ObjectID = require('mongodb').ObjectID;
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000
@@ -60,12 +61,29 @@ async function run() {
         return res.status(403).send({message:'Forbidden access'})
       }
     }
+    // ---add a new service---
+    app.post('/addServices',verifyJWT,verifyAdmin,async(req,res)=>{
+      const service = req.body;
+      const users =await serviceDatabase.insertOne(service)
+      res.send(users);
+    })
+
+    // --- delete an service---
+    app.delete('/service',verifyJWT,verifyAdmin,async(req,res)=>{
+      const service = req.query.name
+      const filter = {service:service}
+      // console.log(filter)
+      const data = await serviceDatabase.deleteOne(filter)
+      res.send(data);
+    })
   
+
+    // -----get all service---
     app.get('/services', async(req, res) => {
         const query ={};
-        const cursor = serviceDatabase.find(query).project({service: 1});
+        const cursor = serviceDatabase.find(query);
         const data = await cursor.toArray();
-        res.send(data)
+        res.send(data) 
       })
 
     app.get('/available',async(req,res)=>{
@@ -192,7 +210,7 @@ async function run() {
         $set: data
       };
       const result = await usersDatabase.updateOne(filter, updateDoc, options);
-      const token = jwt.sign({email:email},process.env.USER_TOKEN,{ expiresIn: '1h' })
+      const token = jwt.sign({email:email},process.env.USER_TOKEN,)
       res.send({result,token})
     })
 
