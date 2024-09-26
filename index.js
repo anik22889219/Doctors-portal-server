@@ -49,8 +49,11 @@ async function run() {
     const bookingDatabase = client.db("doctors").collection('bookings');
     const usersDatabase = client.db("doctors").collection('users');
     const doctorsDatabase = client.db("doctors").collection('doctors');
+    const directorDatabase = client.db("doctors").collection('directors');
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
+
+    // ----make sure is this admin-----
     const verifyAdmin = async (req,res,next)=>{
       const requester = req.decoded.email
       const requesterAccount = await usersDatabase.findOne({email: requester}) 
@@ -61,12 +64,15 @@ async function run() {
         return res.status(403).send({message:'Forbidden access'})
       }
     }
+
+
     // ---add a new service---
     app.post('/addServices',verifyJWT,verifyAdmin,async(req,res)=>{
       const service = req.body;
       const users =await serviceDatabase.insertOne(service)
       res.send(users);
     })
+
 
     // --- delete an service---
     app.delete('/service',verifyJWT,verifyAdmin,async(req,res)=>{
@@ -86,6 +92,8 @@ async function run() {
         res.send(data) 
       })
 
+
+      // ---- get available service----
     app.get('/available',async(req,res)=>{
       const date = req.query.date;
 
@@ -127,14 +135,9 @@ async function run() {
         return res.status(403).send({message:'Forbidden access'})
       }     
     })
-
-
-
-
+    
     
   // ---store bokings on bookingDatabase---
-
-
     app.post('/bookings', async(req,res)=>{
       const data = req.body
       const quarry = {Treatment: data.Treatment,Date:data.Date,Name:data.Name}
@@ -250,6 +253,30 @@ async function run() {
       const email = req.params.email
       const filter = {email:email}
       const data = await doctorsDatabase.deleteOne(filter)
+      res.send(data);
+    })
+
+    // ---store director---
+    app.post('/director',verifyJWT,verifyAdmin,async(req,res)=>{
+      const doctor = req.body;
+      const users =await directorDatabase.insertOne(doctor)
+      res.send(users);
+    })
+  
+
+
+    // ----get All director---
+    app.get('/director',verifyJWT,verifyAdmin,async(req,res)=>{
+      const data = await directorDatabase.find().toArray()
+      res.send(data);
+    })
+
+
+    // ---delete an director---
+    app.delete('/director/:email',verifyJWT,verifyAdmin,async(req,res)=>{
+      const email = req.params.email
+      const filter = {email:email}
+      const data = await directorDatabase.deleteOne(filter)
       res.send(data);
     })
 
