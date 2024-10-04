@@ -171,7 +171,7 @@ async function run() {
         const users =await bookingDatabase.find({role : 'confirmed'}).toArray();
         res.send(users);
       })
-
+ 
 
 
 
@@ -242,7 +242,7 @@ async function run() {
 
 
     // ----get All doctors---
-    app.get('/doctor',verifyJWT,verifyAdmin,async(req,res)=>{
+    app.get('/doctor',async(req,res)=>{
       const data = await doctorsDatabase.find().toArray()
       res.send(data);
     })
