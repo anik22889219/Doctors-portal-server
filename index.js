@@ -266,7 +266,7 @@ async function run() {
 
 
     // ----get All director---
-    app.get('/director',verifyJWT,verifyAdmin,async(req,res)=>{
+    app.get('/director',async(req,res)=>{
       const data = await directorDatabase.find().toArray()
       res.send(data);
     })
